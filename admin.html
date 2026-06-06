@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+    const supabaseUrl = 'https://susuqstqsbqlbimyrukd.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN1c3Vxc3Rxc2JxbGJpbXlydWtkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3MDc1MDYsImV4cCI6MjA5NDI4MzUwNn0.qP4TjsVuUG-kik5G_ztqPxy3jQttjwUODRv3Itzb2bg';
+
+    const supabaseClient = supabase.createClient(
+      supabaseUrl,
+      supabaseKey
+    );
+    console.log(supabaseClient);
+  </script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel de Torneio de Poker</title>
@@ -263,6 +274,36 @@
     .structure-bottom {
     margin-top: 28px;
     }
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+    }
+
+    .modal-content {
+      width: 100%;
+      max-width: 460px;
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 24px;
+      padding: 28px;
+    }
+
+    .modal-content h2 {
+      color: #facc15;
+      margin-bottom: 18px;
+    }
+
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 18px;
+    }
 
     .structure-bottom #levelsList {
         display: grid;
@@ -287,6 +328,99 @@
       .blinds {
         grid-template-columns: 1fr;
       }
+    }
+    .players-box {
+      margin-top: 24px;
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(0,0,0,0.18);
+    }
+
+    .players-box h2 {
+      color: #facc15;
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+
+    .player-row {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr 0.8fr 0.8fr 0.8fr 1fr;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      font-size: 14px;
+    }
+    .player-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .player-actions button {
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+    }
+    .player-row strong {
+      color: #fff;
+    }
+
+    .player-row span {
+      color: #cbd5e1;
+    }
+    .player-counter {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .player-counter label {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .counter {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .counter button {
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 8px;
+      background: #1e293b;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .counter button:hover {
+      background: #334155;
+    }
+
+    .counter span {
+      min-width: 24px;
+      text-align: center;
+      font-weight: bold;
+    }
+    .eliminate-btn {
+      border: none;
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: #dc2626;
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .player-eliminated {
+      opacity: 0.45;
+    }
+
+    .player-eliminated strong {
+      text-decoration: line-through;
     }
   </style>
 </head>
@@ -406,6 +540,7 @@
             
         </div>
         <div class="controls">
+            <button class="btn btn-start" onclick="openPlayerModal()">+ Player</button>
             <button class="btn btn-start" onclick="startTimer()">▶ Iniciar</button>
             <button class="btn btn-pause" onclick="pauseTimer()">⏸ Pausar</button>
             <button class="btn btn-break" onclick="startBreak()">Intervalo</button>
@@ -417,8 +552,35 @@
         </div>
       </aside>
     </section>
-  </main>
+    <div id="playerModal" class="modal">
+      <div class="modal-content">
+        <h2>Novo jogador</h2>
+        <label>
+          Nome do jogador
+          <input id="playerName" type="text" placeholder="Ex: Lucas" />
+        </label>
 
+        <label>
+          Buy-in
+          <input id="playerBuyin" type="number" min="0" value="0" />
+        </label>
+
+        <label>
+          Jackpot
+          <input id="playerJackpot" type="number" min="0" value="0" />
+        </label>
+
+        <div class="modal-actions">
+          <button class="btn btn-reset" onclick="closePlayerModal()">Cancelar</button>
+          <button class="btn btn-start" onclick="addPlayer()">Salvar jogador</button>
+        </div>
+      </div>
+    </div>  
+    <div class="players-box">
+      <h2>Jogadores cadastrados</h2>
+    <div id="playersListBox"></div>
+</div>
+  </main>
   <script>
     const levels = [
         { small: 25, big: 50},
@@ -459,6 +621,9 @@
     let breakSeconds = 0;
     let isBreak = false;
     let showPayouts = false;
+    let currentPayouts = [];
+
+    let playersList = [];
 
     const tournamentName = document.getElementById('tournamentName');
 
@@ -484,6 +649,12 @@
     const remainingPlayers = document.getElementById('remainingPlayers');
     const totalCollected = document.getElementById('totalCollected');
     const houseValue = document.getElementById('houseValue');
+    //Jogadores
+    const playerModal = document.getElementById('playerModal');
+    const playerName = document.getElementById('playerName');
+    const playerBuyin = document.getElementById('playerBuyin');
+    const playerJackpot = document.getElementById('playerJackpot');
+    const playersListBox = document.getElementById('playersListBox');
 
     const timerTitle = document.getElementById('timerTitle');
     // pagamentos
@@ -497,6 +668,140 @@
             })})
             </div>
         `).join('');
+    }
+    function openPlayerModal() {
+      playerModal.style.display = 'flex';
+      playerName.value = '';
+      playerBuyin.value = buyinValue.value || 0;
+      playerJackpot.value = 0;
+      playerName.focus();
+    }
+
+    function closePlayerModal() {
+      playerModal.style.display = 'none';
+    }
+
+    function addPlayer() {
+      const name = playerName.value.trim();
+      const buyin = Number(playerBuyin.value) || 0;
+      const jackpot = Number(playerJackpot.value) || 0;
+
+      if (!name) {
+        alert('Digite o nome do jogador');
+        return;
+      }
+
+      playersList.push({
+        name,
+        buyin,
+        jackpot,
+        rebuys: 0,
+        addons: 0,
+        status: 'ativo'
+      });
+
+      playersCount.value = playersList.length;
+      remainingPlayers.value = playersList.filter(p => p.status === 'ativo').length;
+
+      const currentBuyinTotal = Number(buyinValue.value) || 0;
+      buyinValue.value = currentBuyinTotal || buyin;
+
+      updatePrizePool();
+      render();
+      closePlayerModal();
+      renderPlayersList();
+    }
+    function addRebuy(index) {
+      playersList[index].rebuys += 1;
+
+      rebuysCount.value = Number(rebuysCount.value || 0) + 1;
+
+      updatePrizePool();
+      renderPlayersList();
+      saveState();
+    }
+
+    function addAddon(index) {
+      playersList[index].addons += 1;
+
+      addonsCount.value = Number(addonsCount.value || 0) + 1;
+
+      updatePrizePool();
+      renderPlayersList();
+      saveState();
+    }
+    function renderPlayersList() {
+      playersListBox.innerHTML = playersList.map((player, index) => `
+        <div class="player-row ${player.status === 'eliminado' ? 'player-eliminated' : ''}">
+          <strong>${player.name}</strong>
+
+          <span>Buy-in: R$ ${player.buyin}</span>
+
+          <span>Jackpot: R$ ${player.jackpot}</span>
+
+          <div class="player-counter">
+            <label>Rebuys</label>
+            <div class="counter">
+              <button onclick="changeRebuy(${index}, -1)">−</button>
+              <span>${player.rebuys}</span>
+              <button onclick="changeRebuy(${index}, 1)">+</button>
+            </div>
+          </div>
+
+          <div class="player-counter">
+            <label>Add-ons</label>
+            <div class="counter">
+              <button onclick="changeAddon(${index}, -1)">−</button>
+              <span>${player.addons}</span>
+              <button onclick="changeAddon(${index}, 1)">+</button>
+            </div>
+          </div>
+
+          <button class="eliminate-btn" onclick="toggleEliminatePlayer(${index})">
+            ${player.status === 'eliminado' ? 'Reativar' : 'Eliminar'}
+          </button>
+        </div>
+      `).join('');
+    }
+    function toggleEliminatePlayer(index) {
+      playersList[index].status =
+        playersList[index].status === 'eliminado' ? 'ativo' : 'eliminado';
+
+      remainingPlayers.value = playersList.filter(
+        player => player.status !== 'eliminado'
+      ).length;
+
+      renderPlayersList();
+      updatePrizePool();
+      saveState();
+    }
+    function changeRebuy(index, value) {
+      if (playersList[index].rebuys + value < 0) return;
+
+      playersList[index].rebuys += value;
+
+      rebuysCount.value = playersList.reduce(
+        (total, player) => total + player.rebuys,
+        0
+      );
+
+      updatePrizePool();
+      renderPlayersList();
+      saveState();
+    }
+    function changeAddon(index, value) {
+      if (playersList[index].addons + value < 0) return;
+
+      playersList[index].addons += value;
+
+      addonsCount.value = playersList.reduce(
+        (total, player) => total + player.addons,
+        0
+      );
+
+      updatePrizePool();
+      renderPlayersList();
+      saveState();
     }
     function togglePayoutDisplay() {
         showPayouts = !showPayouts;
@@ -575,7 +880,7 @@
         const total = ((players + rebuys) * buyin) + (addons * addonPrice);
         const taxaCasa = total * (fee / 100);
         const premio = total - taxaCasa;
-        const payouts = calculatePayouts(premio, players);
+        currentPayouts = calculatePayouts(premio, players);
 
         totalCollected.textContent = total.toLocaleString('pt-BR', {
             style: 'currency',
@@ -589,28 +894,38 @@
             style: 'currency',
             currency: 'BRL'
         });
-        localStorage.setItem('payouts', JSON.stringify(payouts));
-        renderPayouts(payouts);
+        renderPayouts(currentPayouts);
         saveState();
     }
-    function saveState() {
-        localStorage.setItem('pokerTournamentState', JSON.stringify({
-            tournamentName: tournamentName.value || 'Torneio de Poker',
-            currentLevel,
-            remainingSeconds,
-            totalSeconds,
-            levels,
-            addonLevel,
-            isBreak,
-            breakSeconds,
-            status: status.textContent,
-            showPayouts,
-            
-            playersCount: Number(playersCount.value) || 0,
-            remainingPlayers: Number(remainingPlayers.value) || Number(playersCount.value) || 0,
-            prizePool: prizePool.textContent
-        }));
-    }            
+    async function saveState() {
+      const state = {
+        tournamentName: tournamentName.value || 'Torneio de Poker',
+        currentLevel,
+        remainingSeconds,
+        totalSeconds,
+        levels,
+        addonLevel,
+        isBreak,
+        breakSeconds,
+        status: status.textContent,
+        showPayouts,
+        payouts: currentPayouts || [],
+        playersList,
+
+        playersCount: Number(playersCount.value) || 0,
+        remainingPlayers: Number(remainingPlayers.value) || Number(playersCount.value) || 0,
+        prizePool: prizePool.textContent
+      };
+
+      const { error } = await supabaseClient
+        .from('tournament_state')
+        .update({ data: state })
+        .eq('id', 1);
+
+      if (error) {
+        console.error('Erro ao salvar no Supabase:', error);
+      }
+    }
 
     function calculatePayouts(totalPrize, players) {
         const itm = Math.ceil(players * 0.15);
