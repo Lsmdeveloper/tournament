@@ -15,20 +15,41 @@ export default function HouseDashboard() {
   }, []);
 
   async function loadData() {
-    const storedHouse = JSON.parse(localStorage.getItem('house'));
+    const { data: sessionData } = await supabase.auth.getSession();
 
-    if (!storedHouse) {
+    if (!sessionData.session) {
       navigate('/');
       return;
     }
 
-    setHouse(storedHouse);
+    const userId = sessionData.session.user.id;
 
-    const { data } = await supabase
+    const { data: house, error: houseError } = await supabase
+      .from('poker_houses')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (houseError || !house) {
+      console.error(houseError);
+      navigate('/');
+      return;
+    }
+
+    localStorage.setItem('house', JSON.stringify(house));
+    setHouse(house);
+
+    const { data, error } = await supabase
       .from('tournaments')
       .select('*')
-      .eq('house_id', storedHouse.id)
+      .eq('house_id', house.id)
       .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error(error);
+      alert('Erro ao carregar torneios');
+      return;
+    }
 
     setTournaments(data || []);
     setLoading(false);
@@ -68,7 +89,8 @@ export default function HouseDashboard() {
 
         <button
           className="btn btn-reset"
-          onClick={() => {
+          onClick={async () => {
+            await supabase.auth.signOut();
             localStorage.clear();
             navigate('/');
           }}

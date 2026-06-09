@@ -65,7 +65,12 @@ export default function Dashboard() {
                     <p>Casas de poker cadastradas</p>
                 </div>
 
-                <button className="btn btn-reset" onClick={() => navigate('/')}>
+                <button className="btn btn-reset" 
+                onClick={async () => {
+                    await supabase.auth.signOut();
+                    localStorage.clear();
+                    navigate('/');
+                }}>
                     Sair
                 </button>
             </header>
